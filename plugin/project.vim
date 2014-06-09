@@ -974,7 +974,11 @@ function! s:Project(filename) " <<<
         if strlen(home) == strlen(a:info)
             let home=a:parent_home
         elseif home=='.'
-            let home=a:parent_home
+            if strlen(a:parent_home) > 0
+                let home=a:parent_home
+            else
+                let home=expand('%:p:h')
+            endif
         elseif !s:IsAbsolutePath(home)
             let home=a:parent_home.'/'.home
         endif
