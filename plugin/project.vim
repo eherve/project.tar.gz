@@ -310,6 +310,7 @@ function! s:Project(filename) " <<<
     " s:OpenEntry(line, precmd, editcmd) <<<
     "   Get the filename under the cursor, and open a window with it.
     function! s:OpenEntry(line, precmd, editcmd, dir)
+        call s:Tlist_Window_Highlight_Line(a:line)
         silent exec a:precmd
         if (a:editcmd[0] != '')
             if a:dir
@@ -1265,6 +1266,16 @@ function! s:Project(filename) " <<<
         setlocal nobuflisted
     endif
 endfunction " >>>
+
+" Tlist_Window_Highlight_Line
+" Highlight the current line
+function! s:Tlist_Window_Highlight_Line(line)
+    " Clear previously selected name
+    match none
+    " Highlight the current line
+    let pat = '/\%' . a:line . 'l\s\+\zs.*/'
+    exe 'match ProjectFileName ' . pat
+endfunction
 
 if exists(':Project') != 2
     command -nargs=? -complete=file Project call <SID>Project('<args>')
