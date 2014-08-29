@@ -1314,10 +1314,14 @@ function! s:Project(filename) " <<<
 
   " BufEnterAction <<<
   function! s:BufEnterAction()
-    call s:EnsureProjectSizeAndPosition()
     if match(g:proj_flags, '\Ch') != -1
       call s:HighlightFile()
     endif
+  endfunction " >>>
+
+  " WinEnterAction <<<
+  function! s:WinEnterAction()
+    call s:EnsureProjectSizeAndPosition()
   endfunction " >>>
 
   call s:DoSetup()
@@ -1420,6 +1424,7 @@ function! s:Project(filename) " <<<
     exec 'au BufEnter '.bufname.' call s:DoSetupAndSplit_au()'
     au WinLeave * call s:RecordPrevBuffer_au()
     au BufEnter * call s:BufEnterAction()
+    au WinEnter * call s:WinEnterAction()
     " >>>
 
     setlocal buflisted
