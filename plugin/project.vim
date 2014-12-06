@@ -63,6 +63,7 @@ function! s:Project(filename) " <<<
     endif
     return
   endif
+
   " Process the flags
   let b:proj_cd_cmd='cd'
   if match(g:proj_flags, '\Cl') != -1
@@ -77,6 +78,7 @@ function! s:Project(filename) " <<<
   endif
 
   let g:proj_last_buffer = -1
+  let g:proj_back_win = -1
   " >>>
 
   " ProjFoldText() <<<
@@ -202,9 +204,13 @@ function! s:Project(filename) " <<<
   function! s:DoSetupAndSplit()
     call s:DoSetup()                " Ensure that all the settings are right
     let n = winnr()                 " Determine if there is a CTRL_W-p window
-    silent! wincmd p
-    if n == winnr()
-      silent! wincmd l
+    if g:proj_last_buffer != -1
+      call s:GoToWin(bufwinnr(g:proj_last_buffer))
+    else
+      silent! wincmd p
+      if n == winnr()
+        silent! wincmd l
+      endif
     endif
     if n == winnr()
       " If n == winnr(), then there is no CTRL_W-p window
@@ -242,8 +248,10 @@ function! s:Project(filename) " <<<
       call s:RelocateProjectWindowIfNeeded()
       call s:ResizeProjectWindowIfNeeded()
     endif
-  endfunction
-  function! s:RecordPrevBuffer_au()
+  endfunction " >>>
+
+  " RecordPrevBuffer() <<<
+  function! s:RecordPrevBuffer()
     let g:proj_last_buffer = bufnr('%')
   endfunction " >>>
 
@@ -346,10 +354,9 @@ function! s:Project(filename) " <<<
     let retval=s:OpenEntry2(a:line, infoline, fname, a:editcmd)
     call s:DisplayInfo()
     if (match(g:proj_flags, '\Ch') != -1) && (retval)
-      let cur = winnr()
       call s:GoToProjectWin()
       call s:HighlightLine(a:line)
-      call s:GoToWin(cur)
+      call s:GoBackToWin()
     endif
     return retval
   endfunction " >>>
@@ -371,6 +378,7 @@ function! s:Project(filename) " <<<
       if !s:IsAbsolutePath(fname)
         let fname=home.fname
       endif
+      " Change file
       if s:IsAbsolutePath(fname) == 2
         exec a:editcmd.' '.fname
       else
@@ -1209,8 +1217,14 @@ function! s:Project(filename) " <<<
     endwhile
   endfunction " >>>
 
+  " GoBackToWin <<<
+  function! s:GoBackToWin()
+    call s:GoToWin(g:proj_back_win)
+  endfunction " >>>
+
   " GoToProjectWin <<<
   function! s:GoToProjectWin()
+    let g:proj_back_win = winnr()
     call s:GoToWin(bufwinnr(g:proj_running))
   endfunction " >>>
 
@@ -1241,7 +1255,6 @@ function! s:Project(filename) " <<<
     if bufwinnr(g:proj_running) != winnr()
       let file = expand("%:t")
       let path = expand("%:p")
-      let cur = winnr()
       call s:GoToProjectWin()
       let flags = "wn"
       let line = search(file, flags)
@@ -1262,7 +1275,7 @@ function! s:Project(filename) " <<<
           endwhile
         endif
       endif
-      call s:GoToWin(cur)
+      call s:GoBackToWin()
     else
       match none
     endif
@@ -1305,23 +1318,34 @@ function! s:Project(filename) " <<<
     if !exists('g:proj_running') || bufwinnr(g:proj_running) == -1
       return
     endif
-    let cur = winnr()
     call s:GoToProjectWin()
     call s:RelocateProjectWindowIfNeeded()
     call s:ResizeProjectWindowIfNeeded()
-    call s:GoToWin(cur)
-  endfunction " >>>
-
-  " BufEnterAction <<<
-  function! s:BufEnterAction()
-    if match(g:proj_flags, '\Ch') != -1
-      call s:HighlightFile()
-    endif
+    call s:GoBackToWin()
   endfunction " >>>
 
   " WinEnterAction <<<
   function! s:WinEnterAction()
-    call s:EnsureProjectSizeAndPosition()
+    let file = expand("%:t")
+    if index(g:proj_exclude_buff, file) == -1
+      call s:EnsureProjectSizeAndPosition()
+    endif
+  endfunction " >>>
+
+  " WinLeaveAcion <<<
+  function! s:WinLeaveAcion()
+    let file = expand("%:t")
+    if index(g:proj_exclude_buff, file) == -1 && bufwinnr(g:proj_running) != winnr()
+      call s:RecordPrevBuffer()
+    endif
+  endfunction " >>>
+
+  " BufEnterAction <<<
+  function! s:BufEnterAction()
+    let file = expand("%:t")
+    if match(g:proj_flags, '\Ch') != -1 && index(g:proj_exclude_buff, file) == -1
+      call s:HighlightFile()
+    endif
   endfunction " >>>
 
   call s:DoSetup()
@@ -1422,9 +1446,9 @@ function! s:Project(filename) " <<<
     exec 'au BufWipeout '.bufname.' nunmap <C-W><C-O>'
     " Autocommands to keep the window the specified size
     exec 'au BufEnter '.bufname.' call s:DoSetupAndSplit_au()'
-    au WinLeave * call s:RecordPrevBuffer_au()
-    au BufEnter * call s:BufEnterAction()
     au WinEnter * call s:WinEnterAction()
+    au WinLeave * call s:WinLeaveAcion()
+    au BufEnter * call s:BufEnterAction()
     " >>>
 
     setlocal buflisted
